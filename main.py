@@ -347,7 +347,7 @@ class LingQianPlugin(Star):
         self.save_subs(subs)
         self._setup_daily()
         return (f"订好了，每天 {'、'.join(self.push_times())} 往这里推一支\n"
-                "不想收就发 /灵签 退订")
+                "不想收就回两个字：退订")
 
     def unsubscribe(self, umo: str) -> str:
         subs = self.load_subs()
