@@ -29,15 +29,15 @@ def _load() -> list:
 
 
 def no_period(text: str) -> str:
-    """拟人路线不留句号：句中的句号换成逗号，句尾的直接去掉。"""
+    """拟人路线不留句号：句中的句号换成分号，句尾的直接去掉。"""
     t = (text or "").strip()
     if not t:
         return ""
     while t.endswith(("。", "．", ".")):
         t = t[:-1].rstrip()
-    t = t.replace("。", "，").replace("．", "，")
-    t = t.replace("，，", "，")
-    return t.rstrip("，")
+    t = t.replace("。", "；").replace("．", "；")
+    t = t.replace("，，", "，").replace("；；", "；")
+    return t.rstrip("，；")
 
 
 def items_line(item: dict) -> str:
