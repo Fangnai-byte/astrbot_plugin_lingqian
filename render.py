@@ -135,6 +135,13 @@ def render_stick(item: dict, out_path: str, width: int = 760, question: str = ""
             _center(d, line, _font(int(w * 0.026), "song"), w / 2, y, INK_SOFT)
             y += int(w * 0.036)
 
+    # 分项：功名 财禄 婚姻 疾病 出行
+    items = item.get("items") or {}
+    if items:
+        _center(d, "　".join(f"{k} {v}" for k, v in items.items()),
+                _font(int(w * 0.024), "song"), w / 2, y, INK_SOFT)
+        y += int(w * 0.040)
+
     if question:
         q = "问：" + (question if len(question) <= 24 else question[:24] + "…")
         _center(d, q, _font(int(w * 0.024), "song"), w / 2, h - int(w * 0.070), INK_SOFT)
