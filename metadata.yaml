@@ -14,6 +14,8 @@ help: |
   /灵签 群统计        本群一共抽了几次、几个人抽过、谁抽得最多
   /灵签 26            查某一支的全文，不消耗冷却
   /灵签 今候          今天落在七十二候的哪一候
+  /灵签 订阅          这个群每天收一支，默认早上八点
+  /灵签 退订          不再收
   /抽签 [问的事]      同上
   /求签 [问的事]      同上
 
@@ -30,7 +32,7 @@ logo: "https://raw.githubusercontent.com/Fangnai-byte/astrbot_plugin_lingqian/ma
 repo: "https://github.com/Fangnai-byte/astrbot_plugin_lingqian"
 
 # 插件版本号
-version: 0.3.0
+version: 0.3.1
 
 # 作者名
 author: Fangnai-byte
