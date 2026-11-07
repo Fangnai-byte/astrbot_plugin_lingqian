@@ -399,8 +399,13 @@ class LingQianPlugin(Star):
             return
         item = self.daily_item()
         head = f"今日一签 · 第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
-        poem_text = chr(10).join(item.get("poem") or [])
-        text = chr(10).join([head, poem_text, "", no_period(item.get("jie", "")), "", items_line(item)])
+        # 推送也带一句解语：没解出就退回签诗加白话
+        answer = await self.llm_answer(item, "今天该留意什么", current_hou())
+        if answer:
+            text = chr(10).join([head, no_period(answer), "", items_line(item)])
+        else:
+            poem_text = chr(10).join(item.get("poem") or [])
+            text = chr(10).join([head, poem_text, "", no_period(item.get("jie", "")), "", items_line(item)])
         img = None
         if self._cfg("image_enabled", True):
             path = os.path.join(self._temp_dir(), f"lingqian_daily_{datetime.now():%Y%m%d}.jpg")
