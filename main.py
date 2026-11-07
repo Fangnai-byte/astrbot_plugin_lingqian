@@ -29,13 +29,18 @@ def _load() -> list:
 
 
 def no_period(text: str) -> str:
-    """拟人路线不留句号：句中的句号换成分号，句尾的直接去掉。"""
+    """拟人路线不留句号。
+
+    句尾的句号直接去掉；句中的句号，如果这句里已经有分号就换逗号，
+    没有分号才换分号，免得一句里连着两个分号。
+    """
     t = (text or "").strip()
     if not t:
         return ""
     while t.endswith(("。", "．", ".")):
         t = t[:-1].rstrip()
-    t = t.replace("。", "；").replace("．", "；")
+    mark = "，" if "；" in t else "；"
+    t = t.replace("。", mark).replace("．", mark)
     t = t.replace("，，", "，").replace("；；", "；")
     return t.rstrip("，；")
 
