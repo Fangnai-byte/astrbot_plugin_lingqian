@@ -308,7 +308,8 @@ class LingQianPlugin(Star):
         part = "一二三"[max(0, h["part"] - 1)]
         return (f"第 {h['idx']} 候 · {h['jie']}{part}候「{h['name']}」\n"
                 f"{h['plain']}\n"
-                f"{h['jie']}已经 {h['days_in']} 天，还有 {h['next_in_days']} 天到{h['next_jie']}")
+                                f"{h['jie']}已经 {h['days_in']} 天，还有 {h['next_in_days']} 天到{h['next_jie']}"
+                                "\n（七十二候按黄河流域记，南边走的是另一套冷暖）")
 
     def cooldown_left(self, uid: str) -> int:
         """还要等几秒，0 表示可以抽。"""
