@@ -72,6 +72,40 @@ def answer_line(item: dict, question: str) -> str:
     return f"你问的这件事，签是{grade}，先别急着动"
 
 
+SYSTEM_PROMPT = (
+    "你在一座小庙里替人解签。用户抽了一支六十甲子灵签，你把签的意思对着他问的事讲清楚。"
+    "说话像个老练的解签人：直给，不绕，不用书面腔，不用「首先其次」「总之」这类词，"
+    "不重复签诗原文。不超过三句，结尾不加句号。"
+)
+
+
+def build_prompt(item: dict, question: str) -> str:
+    poem = "，".join(item.get("poem") or [])
+    items = "，".join(f"{k}{v}" for k, v in (item.get("items") or {}).items())
+    return (
+        f"签号：第 {item['num']} 签 · {item.get('title', '')}（{grade_of(item)}）\n"
+        f"签诗：{poem}\n"
+        f"白话：{item.get('jie', '')}\n"
+        f"分项：{items}\n"
+        f"卦头故事：{item.get('story', '')}\n\n"
+        f"用户问：{question}\n"
+        "对着他问的这件事解签，两三句"
+    )
+
+
+def trim_text(text: str, limit: int) -> str:
+    """模型爱写长句：按句号、分号、逗号截到 limit 字以内。"""
+    t = (text or "").strip().strip('"“”')
+    if len(t) <= limit:
+        return t
+    cut = t[:limit]
+    for mark in ("。", "；", "！", "？", "，"):
+        pos = cut.rfind(mark)
+        if pos > limit * 0.5:
+            return cut[:pos]
+    return cut
+
+
 def no_period(text: str) -> str:
     """拟人路线不留句号。
 
@@ -214,6 +248,30 @@ class LingQianPlugin(Star):
             parts.append("卦头：" + item["story"])
         return "\n".join(p for p in parts if p is not None)
 
+    async def llm_answer(self, item: dict, question: str) -> str:
+        """让模型对着问题解签，失败返回空串由规则兜底。"""
+        if not self._cfg("llm_enabled", True) or not question:
+            return ""
+        try:
+            provider = self.context.get_using_provider() if self.context else None
+        except Exception:
+            provider = None
+        if provider is None:
+            return ""
+        limit = self._as_int("llm_max_chars", 80)
+        try:
+            resp = await asyncio.wait_for(
+                provider.text_chat(prompt=build_prompt(item, question),
+                                   system_prompt=SYSTEM_PROMPT),
+                timeout=float(self._as_int("llm_timeout_seconds", 20)),
+            )
+            text = (getattr(resp, "completion_text", "") or "").strip()
+        except Exception:
+            return ""
+        if not text:
+            return ""
+        return trim_text(text, limit)
+
     def cooldown_left(self, uid: str) -> int:
         """还要等几秒，0 表示可以抽。"""
         span = self._as_int("cooldown_seconds", 60)
@@ -262,22 +320,27 @@ class LingQianPlugin(Star):
         return "\n".join(lines)
 
     @staticmethod
-    def reading(item: dict, question: str = "") -> str:
-        poem = "，".join(item["poem"][:2])
+    def reading(item: dict, question: str = "", answer: str = "") -> str:
+        """跟着签条发的那段字。有模型解语就短，没有才铺开。"""
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         tail = items_line(item)
-        ans = no_period(answer_line(item, question))
-        body = head + "\n" + poem + "\n" + no_period(item.get("jie", ""))
+        ans = no_period(answer)
         if ans:
-            body += "\n\n" + ans
+            body = head + "\n" + ans
+            return body + (("\n\n" + tail) if tail else "")
+        poem = "，".join(item["poem"][:2])
+        body = head + "\n" + poem + "\n" + no_period(item.get("jie", ""))
+        rule = no_period(answer_line(item, question))
+        if rule:
+            body += "\n\n" + rule
         return body + (("\n\n" + tail) if tail else "")
 
-    def plain(self, item: dict, question: str = "") -> str:
+    def plain(self, item: dict, question: str = "", answer: str = "") -> str:
         """配置关掉图片时的纯文字版。"""
         poem = "\n".join(item["poem"])
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         tail = items_line(item)
-        ans = no_period(answer_line(item, question))
+        ans = no_period(answer or answer_line(item, question))
         body = head + "\n" + poem + "\n\n" + no_period(item.get("jie", ""))
         if ans:
             body += "\n\n" + ans
@@ -313,12 +376,14 @@ class LingQianPlugin(Star):
         self._last_draw[uid] = time.time()
         question = (question or "").strip()[:24]
 
+        answer = await self.llm_answer(item, question) if question else ""
+
         if self._cfg("shake_enabled", True):
             yield event.plain_result(random.choice(SHAKE_LINES))
             await asyncio.sleep(float(self._as_int("shake_delay", 2)))
 
         if not self._cfg("image_enabled", True):
-            yield event.plain_result(self.plain(item, question))
+            yield event.plain_result(self.plain(item, question, answer))
             return
 
         path = os.path.join(self._temp_dir(), f"lingqian_{uid}_{int(time.time())}.jpg")
@@ -329,11 +394,11 @@ class LingQianPlugin(Star):
                 datetime.now().strftime("%Y-%m-%d"),
             )
         except Exception:
-            yield event.plain_result(self.plain(item, question))
+            yield event.plain_result(self.plain(item, question, answer))
             return
 
         try:
             yield event.image_result(path)
         finally:
             pass
-        yield event.plain_result(self.reading(item, question))
+        yield event.plain_result(self.reading(item, question, answer))
