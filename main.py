@@ -10,6 +10,7 @@ from datetime import datetime
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
 
+from .hou import current_hou
 from .render import render_stick
 
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -81,7 +82,7 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_prompt(item: dict, question: str) -> str:
+def build_prompt(item: dict, question: str, hou: dict | None = None) -> str:
     poem = "，".join(item.get("poem") or [])
     items = "，".join(f"{k}{v}" for k, v in (item.get("items") or {}).items())
     vague = "" if question_kind(question) else (
@@ -93,7 +94,9 @@ def build_prompt(item: dict, question: str) -> str:
         f"白话：{item.get('jie', '')}\n"
         f"分项：{items}\n"
         f"卦头故事：{item.get('story', '')}\n"
-        f"用户问：{question}\n"
+        + (f"时令：{hou['jie']}{'一二三'[max(0, hou['part'] - 1)]}候「{hou['name']}」，"
+           f"{hou['plain']}\n" if hou else "")
+        + f"用户问：{question}\n"
         + vague
         + "先说他问的这件事该怎么看，再用签里的东西作依据，两三句"
     )
@@ -272,7 +275,7 @@ class LingQianPlugin(Star):
             parts.append("卦头：" + item["story"])
         return "\n".join(p for p in parts if p is not None)
 
-    async def llm_answer(self, item: dict, question: str) -> str:
+    async def llm_answer(self, item: dict, question: str, hou: dict | None = None) -> str:
         """让模型对着问题解签，失败返回空串由规则兜底。"""
         if not self._cfg("llm_enabled", True) or not question:
             return ""
@@ -285,7 +288,7 @@ class LingQianPlugin(Star):
         limit = self._as_int("llm_max_chars", 80)
         try:
             resp = await asyncio.wait_for(
-                provider.text_chat(prompt=build_prompt(item, question),
+                provider.text_chat(prompt=build_prompt(item, question, hou),
                                    system_prompt=SYSTEM_PROMPT),
                 timeout=float(self._as_int("llm_timeout_seconds", 20)),
             )
@@ -295,6 +298,17 @@ class LingQianPlugin(Star):
         if not text:
             return ""
         return trim_text(drop_invented_time(text, item), limit)
+
+    @staticmethod
+    def hou_text() -> str:
+        """今天落在第几候。"""
+        h = current_hou()
+        if not h:
+            return "算不出现在的候。"
+        part = "一二三"[max(0, h["part"] - 1)]
+        return (f"第 {h['idx']} 候 · {h['jie']}{part}候「{h['name']}」\n"
+                f"{h['plain']}\n"
+                f"{h['jie']}已经 {h['days_in']} 天，还有 {h['next_in_days']} 天到{h['next_jie']}")
 
     def cooldown_left(self, uid: str) -> int:
         """还要等几秒，0 表示可以抽。"""
@@ -375,6 +389,10 @@ class LingQianPlugin(Star):
     async def cmd_lingqian(self, event: AstrMessageEvent, question: str = ""):
         uid = str(event.get_sender_id())
         gid = str(event.get_group_id() or "")
+        if question.strip() in ("今候", "今日候", "候"):
+            yield event.plain_result(self.hou_text())
+            return
+
         if question.strip() in ("群统计", "本群统计"):
             yield event.plain_result(self.group_stats_text(gid))
             return
@@ -400,7 +418,7 @@ class LingQianPlugin(Star):
         self._last_draw[uid] = time.time()
         question = (question or "").strip()[:24]
 
-        answer = await self.llm_answer(item, question) if question else ""
+        answer = await self.llm_answer(item, question, current_hou()) if question else ""
 
         if self._cfg("shake_enabled", True):
             yield event.plain_result(random.choice(SHAKE_LINES))
