@@ -28,6 +28,18 @@ def _load() -> list:
         return json.load(f)
 
 
+def no_period(text: str) -> str:
+    """拟人路线不留句号：句中的句号换成逗号，句尾的直接去掉。"""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    while t.endswith(("。", "．", ".")):
+        t = t[:-1].rstrip()
+    t = t.replace("。", "，").replace("．", "，")
+    t = t.replace("，，", "，")
+    return t.rstrip("，")
+
+
 def items_line(item: dict) -> str:
     """分项一行：功名 · 财禄 · 婚姻 · 疾病 · 出行。"""
     items = item.get("items") or {}
@@ -147,7 +159,7 @@ class LingQianPlugin(Star):
         poem = "\n".join(item["poem"])
         parts = [f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）",
                  item.get("meta", ""), "", poem, "",
-                 item.get("jie", ""), "", items_line(item)]
+                 no_period(item.get("jie", "")), "", items_line(item)]
         if item.get("story"):
             parts.append("")
             parts.append("卦头：" + item["story"])
@@ -202,17 +214,17 @@ class LingQianPlugin(Star):
 
     @staticmethod
     def reading(item: dict) -> str:
-        poem = "，".join(item["poem"][:2]) + "。"
+        poem = "，".join(item["poem"][:2])
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         tail = items_line(item)
-        return head + "\n" + poem + "\n" + item.get("jie", "") + (("\n\n" + tail) if tail else "")
+        return head + "\n" + poem + "\n" + no_period(item.get("jie", "")) + (("\n\n" + tail) if tail else "")
 
     def plain(self, item: dict) -> str:
         """配置关掉图片时的纯文字版。"""
         poem = "\n".join(item["poem"])
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         tail = items_line(item)
-        return head + "\n" + poem + "\n\n" + item.get("jie", "") + (("\n\n" + tail) if tail else "")
+        return head + "\n" + poem + "\n\n" + no_period(item.get("jie", "")) + (("\n\n" + tail) if tail else "")
 
     # ---------- 命令 ----------
     @filter.command("灵签", alias={"抽签", "求签"})
