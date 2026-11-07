@@ -400,7 +400,9 @@ class LingQianPlugin(Star):
         item = self.daily_item()
         head = f"今日一签 · 第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         # 推送也带一句解语：没解出就退回签诗加白话
-        answer = await self.llm_answer(item, "今天该留意什么", current_hou())
+        # 推送没有上下文，把日期塞进问题里，模型才好谈“今天”
+        today = f"今天是 {datetime.now().month} 月 {datetime.now().day} 日，今天该留意什么"
+        answer = await self.llm_answer(item, today, current_hou())
         if answer:
             text = chr(10).join([head, no_period(answer), "", items_line(item)])
         else:
