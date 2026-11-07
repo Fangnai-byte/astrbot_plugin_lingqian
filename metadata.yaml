@@ -21,6 +21,7 @@ help: |
   下面是卦头故事和分项（功名、财禄、婚姻、疾病、出行）。签诗取 60 支公版原文。
 
   同一个人最近抽过的 12 支不会再出现；抽满 12 次后会开始碰上重复的签。
+  配置里开每日一签，可以定时往群里推。
 
 # 插件 Logo 文件名（对应插件目录下的 logo.png）
 logo: "https://raw.githubusercontent.com/Fangnai-byte/astrbot_plugin_lingqian/main/logo.png"
@@ -29,7 +30,7 @@ logo: "https://raw.githubusercontent.com/Fangnai-byte/astrbot_plugin_lingqian/ma
 repo: "https://github.com/Fangnai-byte/astrbot_plugin_lingqian"
 
 # 插件版本号
-version: 0.2.1
+version: 0.3.0
 
 # 作者名
 author: Fangnai-byte
