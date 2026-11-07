@@ -15,9 +15,25 @@ from .render import render_stick
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(PLUGIN_DIR, "data.json")
 
+SHAKE_LINES = (
+    "摇了三下，一支跳出来。",
+    "签筒晃了晃，落出一支。",
+    "摇到第三下，这支自己冒了头。",
+    "匣子里一阵响，出来的就是它。",
+)
+
+
 def _load() -> list:
     with open(DATA_PATH, encoding="utf-8") as f:
         return json.load(f)
+
+
+def items_line(item: dict) -> str:
+    """分项一行：功名 · 财禄 · 婚姻 · 疾病 · 出行。"""
+    items = item.get("items") or {}
+    if not items:
+        return ""
+    return "　".join(f"{k} {v}" for k, v in items.items())
 
 
 def grade_of(item: dict) -> str:
@@ -194,6 +210,10 @@ class LingQianPlugin(Star):
         item = self.draw(uid, str(event.get_group_id() or ""))
         self._last_draw[uid] = time.time()
         question = (question or "").strip()[:24]
+
+        if self._cfg("shake_enabled", True):
+            yield event.plain_result(random.choice(SHAKE_LINES))
+            await asyncio.sleep(float(self._as_int("shake_delay", 2)))
 
         if not self._cfg("image_enabled", True):
             yield event.plain_result(self.plain(item))
