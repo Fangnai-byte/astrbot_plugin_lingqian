@@ -28,5 +28,41 @@
     "description": "摇签后等几秒再出图",
     "default": 2,
     "hint": "0~5 秒。留一下才有等待的感觉，太长会以为卡住了。"
+  },
+  "llm_enabled": {
+    "type": "bool",
+    "description": "让模型对着问题解签",
+    "default": true,
+    "hint": "开着会用当前默认模型，读完签诗和分项，针对你问的事说两三句；关掉或超时就退回规则生成的答案。"
+  },
+  "llm_max_chars": {
+    "type": "int",
+    "description": "模型解语最长字数",
+    "default": 80,
+    "hint": "40~200。解签该短，长了就成文章了。"
+  },
+  "llm_timeout_seconds": {
+    "type": "int",
+    "description": "等模型的时间（秒）",
+    "default": 20,
+    "hint": "5~60。超时就用规则答案，不会卡着不回。"
+  },
+  "daily_push_enabled": {
+    "type": "bool",
+    "description": "每天定时推一支签",
+    "default": false,
+    "hint": "开着要同时填推送时间和会话，两项空着不会推。"
+  },
+  "daily_push_times": {
+    "type": "list",
+    "description": "推送时刻",
+    "default": [],
+    "hint": "24 小时制，如 08:00。可填多个，一天推几次。"
+  },
+  "daily_push_targets": {
+    "type": "list",
+    "description": "推到哪些会话",
+    "default": [],
+    "hint": "填会话的 unified_msg_origin，比如 aiocqhttp:GroupMessage:123456。群里先发一句 /灵签 统计，日志里能看到这个值。"
   }
 }
