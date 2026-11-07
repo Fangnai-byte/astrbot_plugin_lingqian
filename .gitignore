@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+
+# 谁抽过什么是本地数据，不进仓库
+history.json
+
+# 出图失败时退回的临时目录
+.tmp/
+
+# 卡片临时图走 AstrBot 的 temp 目录，正常不会落在这里
+*tarot_card*.png
+lingqian_*.jpg
