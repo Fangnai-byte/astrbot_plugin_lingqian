@@ -314,6 +314,49 @@ class LingQianPlugin(Star):
         return trim_text(drop_invented_time(text, item), limit)
 
     # ---------- 每日一签 ----------
+    @property
+    def _subs_path(self) -> str:
+        return os.path.join(PLUGIN_DIR, "daily_subs.json")
+
+    def load_subs(self) -> list:
+        try:
+            with open(self._subs_path, encoding="utf-8") as f:
+                data = json.load(f)
+            return [str(x) for x in data] if isinstance(data, list) else []
+        except Exception:
+            return []
+
+    def save_subs(self, subs: list) -> None:
+        try:
+            with open(self._subs_path, "w", encoding="utf-8") as f:
+                json.dump(sorted(set(subs)), f, ensure_ascii=False, indent=1)
+        except Exception:
+            pass
+
+    def push_times(self) -> list:
+        times = [str(t).strip() for t in (self._cfg("daily_push_times", []) or []) if str(t).strip()]
+        return times or ["08:00"]
+
+    def subscribe(self, umo: str) -> str:
+        if not umo:
+            return "订不上，拿不到这个会话的标识。"
+        subs = self.load_subs()
+        if umo in subs:
+            return f"已经订过了，每天 {'、'.join(self.push_times())} 推一支。"
+        subs.append(umo)
+        self.save_subs(subs)
+        self._setup_daily()
+        return (f"订好了，每天 {'、'.join(self.push_times())} 往这里推一支\n"
+                "不想收就发 /灵签 退订")
+
+    def unsubscribe(self, umo: str) -> str:
+        subs = self.load_subs()
+        if umo not in subs:
+            return "这里没订过。"
+        subs = [x for x in subs if x != umo]
+        self.save_subs(subs)
+        return "退了，不再推。"
+
     def daily_item(self, when=None) -> dict:
         """同一天推同一支：按日期取签，不看是谁。"""
         when = when or datetime.now()
@@ -322,28 +365,38 @@ class LingQianPlugin(Star):
         return self.data[idx]
 
     def _setup_daily(self) -> None:
-        if not self._cfg("daily_push_enabled", False):
+        configured = [str(t).strip() for t in (self._cfg("daily_push_targets", []) or []) if str(t).strip()]
+        targets = configured + [t for t in self.load_subs() if t not in configured]
+        if not targets:
             return
-        targets = [str(t).strip() for t in (self._cfg("daily_push_targets") or []) if str(t).strip()]
-        times = [str(t).strip() for t in (self._cfg("daily_push_times") or []) if str(t).strip()]
-        if not targets or not times:
-            return
-        sched = AsyncIOScheduler(timezone="Asia/Shanghai")
+        times = self.push_times()
+        sched = self.scheduler or AsyncIOScheduler(timezone="Asia/Shanghai")
+        try:
+            sched.remove_all_jobs()
+        except Exception:
+            pass
         for slot in times:
             parts = slot.split(":")
             if len(parts) != 2 or not all(p.isdigit() for p in parts):
                 continue
             cron = f"{int(parts[1])} {int(parts[0])} * * *"
-            sched.add_job(self._push_daily, CronTrigger.from_crontab(cron, timezone="Asia/Shanghai"),
-                          args=[targets], id="lingqian_daily_" + slot, replace_existing=True,
+            sched.add_job(self._push_daily,
+                          CronTrigger.from_crontab(cron, timezone="Asia/Shanghai"),
+                          id="lingqian_daily_" + slot, replace_existing=True,
                           max_instances=1, coalesce=True, misfire_grace_time=600)
-        try:
-            sched.start()
-        except Exception:
-            return
         self.scheduler = sched
+        try:
+            if not sched.running:
+                sched.start()
+        except Exception:
+            # 插件加载阶段没有事件循环，等收到第一条消息时再启
+            pass
 
-    async def _push_daily(self, targets: list) -> None:
+    async def _push_daily(self, targets: list | None = None) -> None:
+        configured = [str(t).strip() for t in (self._cfg("daily_push_targets", []) or []) if str(t).strip()]
+        targets = targets or (configured + [t for t in self.load_subs() if t not in configured])
+        if not targets:
+            return
         item = self.daily_item()
         head = f"今日一签 · 第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         poem_text = chr(10).join(item.get("poem") or [])
@@ -454,8 +507,21 @@ class LingQianPlugin(Star):
     # ---------- 命令 ----------
     @filter.command("灵签", alias={"抽签", "求签"})
     async def cmd_lingqian(self, event: AstrMessageEvent, question: str = ""):
+        if self.scheduler is not None and not self.scheduler.running:
+            try:
+                self.scheduler.start()
+            except Exception:
+                pass
         uid = str(event.get_sender_id())
         gid = str(event.get_group_id() or "")
+        if question.strip() in ("订阅", "订", "subscribe"):
+            yield event.plain_result(self.subscribe(str(event.unified_msg_origin or "")))
+            return
+
+        if question.strip() in ("退订", "取消订阅", "unsubscribe"):
+            yield event.plain_result(self.unsubscribe(str(event.unified_msg_origin or "")))
+            return
+
         if question.strip() in ("今候", "今日候", "候"):
             yield event.plain_result(self.hou_text())
             return
