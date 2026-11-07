@@ -76,7 +76,7 @@ SYSTEM_PROMPT = (
     "你在一座小庙里替人解签。用户抽了一支六十甲子灵签，你要对着他问的那件事说清楚。"
     "先说结论，用什么态度做、行不行、往哪边走；再补一句签里的依据，别让人自己去对。"
     "不许编签里没有的具体时间、数字、人名：签文写「月中」就写月中，不要写成「中午前后」；"
-    "签里没提日子就别给日子。不用「首先其次」「总之」这类词，不重复签诗原文，"
+    "签里没提日子就别给日子；也别写上午、中午、晚上这种时段，除非签文里明写。不用「首先其次」「总之」这类词，不重复签诗原文，"
     "不写「这支签的意思是」这种开场。两三句，结尾不加句号。"
 )
 
@@ -93,6 +93,25 @@ def build_prompt(item: dict, question: str) -> str:
         f"用户问：{question}\n"
         "先说他问的这件事该怎么看，再用签里的东西作依据，两三句"
     )
+
+
+TIME_WORDS = ("凌晨", "清早", "早上", "上午", "中午", "晌午", "下午", "傍晚", "晚上", "夜里", "半夜")
+
+
+def drop_invented_time(answer: str, item: dict) -> str:
+    """签文里没有的时段词，换成「这会儿」，免得凭空给个钟点。"""
+    source = " ".join([
+        "".join(item.get("poem") or []),
+        item.get("jie", ""),
+        "".join(f"{k}{v}" for k, v in (item.get("items") or {}).items()),
+        item.get("story", ""),
+        item.get("meta", ""),
+    ])
+    out = answer or ""
+    for w in TIME_WORDS:
+        if w in out and w not in source:
+            out = out.replace(w, "这会儿")
+    return out
 
 
 def trim_text(text: str, limit: int) -> str:
@@ -272,7 +291,7 @@ class LingQianPlugin(Star):
             return ""
         if not text:
             return ""
-        return trim_text(text, limit)
+        return trim_text(drop_invented_time(text, item), limit)
 
     def cooldown_left(self, uid: str) -> int:
         """还要等几秒，0 表示可以抽。"""
