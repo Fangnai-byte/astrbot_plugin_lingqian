@@ -16,5 +16,17 @@
     "description": "两次抽签之间的冷却（秒）",
     "default": 60,
     "hint": "0 表示不限。抽太快签就不灵了，默认一分钟一次。"
+  },
+  "shake_enabled": {
+    "type": "bool",
+    "description": "抽之前先摇一下",
+    "default": true,
+    "hint": "开着一句「摇了三下，一支跳出来」再出签条；关掉直接出结果。"
+  },
+  "shake_delay": {
+    "type": "int",
+    "description": "摇签后等几秒再出图",
+    "default": 2,
+    "hint": "0~5 秒。留一下才有等待的感觉，太长会以为卡住了。"
   }
 }
