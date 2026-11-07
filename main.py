@@ -28,6 +28,50 @@ def _load() -> list:
         return json.load(f)
 
 
+KIND_WORDS = (
+    ("功名", ("工作", "事业", "上班", "面试", "考试", "升职", "跳槽", "辞职", "学业", "考研", "老板", "公司", "offer")),
+    ("财禄", ("钱", "财运", "收入", "生意", "投资", "股票", "买卖", "回本", "赚", "亏", "欠", "债")),
+    ("婚姻", ("感情", "喜欢", "复合", "结婚", "对象", "恋爱", "分手", "告白", "追", "他", "她", "缘")),
+    ("疾病", ("身体", "病", "健康", "难受", "失眠", "医", "恢复")),
+    ("出行", ("出行", "搬家", "出差", "旅游", "回老家", "出门", "远行", "去不去", "路上")),
+)
+
+KIND_HINT = {
+    "功名": "事业和学业",
+    "财禄": "钱",
+    "婚姻": "感情",
+    "疾病": "身体",
+    "出行": "走动",
+}
+
+
+def question_kind(question: str) -> str:
+    """按关键词猜问的是哪一类，猜不到返回空串。"""
+    q = question or ""
+    for kind, words in KIND_WORDS:
+        if any(w in q for w in words):
+            return kind
+    return ""
+
+
+def answer_line(item: dict, question: str) -> str:
+    """直接把签里跟问题对应的那项说出来，别让人自己去分项里找。"""
+    if not question:
+        return ""
+    kind = question_kind(question)
+    items = item.get("items") or {}
+    if kind and kind in items:
+        return f"你问的是{question}，{KIND_HINT.get(kind, kind)}上，给的是{items[kind]}"
+    grade = grade_of(item)
+    if grade in ("上上", "上吉"):
+        return f"你问的这件事，签是{grade}，可以往前推"
+    if grade == "中吉":
+        return f"你问的这件事，签是{grade}，能成但要费点工夫"
+    if grade == "中平":
+        return f"你问的这件事，签是{grade}，眼下还看不出准头"
+    return f"你问的这件事，签是{grade}，先别急着动"
+
+
 def no_period(text: str) -> str:
     """拟人路线不留句号。
 
@@ -218,18 +262,26 @@ class LingQianPlugin(Star):
         return "\n".join(lines)
 
     @staticmethod
-    def reading(item: dict) -> str:
+    def reading(item: dict, question: str = "") -> str:
         poem = "，".join(item["poem"][:2])
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         tail = items_line(item)
-        return head + "\n" + poem + "\n" + no_period(item.get("jie", "")) + (("\n\n" + tail) if tail else "")
+        ans = no_period(answer_line(item, question))
+        body = head + "\n" + poem + "\n" + no_period(item.get("jie", ""))
+        if ans:
+            body += "\n\n" + ans
+        return body + (("\n\n" + tail) if tail else "")
 
-    def plain(self, item: dict) -> str:
+    def plain(self, item: dict, question: str = "") -> str:
         """配置关掉图片时的纯文字版。"""
         poem = "\n".join(item["poem"])
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
         tail = items_line(item)
-        return head + "\n" + poem + "\n\n" + no_period(item.get("jie", "")) + (("\n\n" + tail) if tail else "")
+        ans = no_period(answer_line(item, question))
+        body = head + "\n" + poem + "\n\n" + no_period(item.get("jie", ""))
+        if ans:
+            body += "\n\n" + ans
+        return body + (("\n\n" + tail) if tail else "")
 
     # ---------- 命令 ----------
     @filter.command("灵签", alias={"抽签", "求签"})
@@ -266,7 +318,7 @@ class LingQianPlugin(Star):
             await asyncio.sleep(float(self._as_int("shake_delay", 2)))
 
         if not self._cfg("image_enabled", True):
-            yield event.plain_result(self.plain(item))
+            yield event.plain_result(self.plain(item, question))
             return
 
         path = os.path.join(self._temp_dir(), f"lingqian_{uid}_{int(time.time())}.jpg")
@@ -277,11 +329,11 @@ class LingQianPlugin(Star):
                 datetime.now().strftime("%Y-%m-%d"),
             )
         except Exception:
-            yield event.plain_result(self.plain(item))
+            yield event.plain_result(self.plain(item, question))
             return
 
         try:
             yield event.image_result(path)
         finally:
             pass
-        yield event.plain_result(self.reading(item))
+        yield event.plain_result(self.reading(item, question))
