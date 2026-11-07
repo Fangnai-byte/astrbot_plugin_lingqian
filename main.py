@@ -131,6 +131,28 @@ class LingQianPlugin(Star):
         self.store.write(hist)
         return item
 
+    @staticmethod
+    def parse_num(text: str) -> int:
+        """认「第26」「26」「第 26 签」这几种写法，其余当问题。"""
+        t = (text or "").strip()
+        if not t:
+            return 0
+        t = t.replace("第", "").replace("签", "").strip()
+        if not t.isdigit():
+            return 0
+        n = int(t)
+        return n if 1 <= n <= 60 else 0
+
+    def view_text(self, item: dict) -> str:
+        poem = "\n".join(item["poem"])
+        parts = [f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）",
+                 item.get("meta", ""), "", poem, "",
+                 item.get("jie", ""), "", items_line(item)]
+        if item.get("story"):
+            parts.append("")
+            parts.append("卦头：" + item["story"])
+        return "\n".join(p for p in parts if p is not None)
+
     def cooldown_left(self, uid: str) -> int:
         """还要等几秒，0 表示可以抽。"""
         span = self._as_int("cooldown_seconds", 60)
@@ -199,14 +221,23 @@ class LingQianPlugin(Star):
             yield event.plain_result(self.group_stats_text(gid))
             return
 
-        wait = self.cooldown_left(uid)
-        if wait > 0:
-            yield event.plain_result(f"刚抽过，{wait} 秒后再来。")
+        want = self.parse_num(question)
+        if want:
+            item = next((c for c in self.data if c["num"] == want), None)
+            if item is None:
+                yield event.plain_result(f"没有第 {want} 签，一共 60 支。")
+                return
+            yield event.plain_result(self.view_text(item))
             return
 
         if question.strip() in ("统计", "记录", "抽过"):
             yield event.plain_result(self.stats_text(self.stats_of(uid)))
             return
+        wait = self.cooldown_left(uid)
+        if wait > 0:
+            yield event.plain_result(f"刚抽过，{wait} 秒后再来。")
+            return
+
         item = self.draw(uid, str(event.get_group_id() or ""))
         self._last_draw[uid] = time.time()
         question = (question or "").strip()[:24]
