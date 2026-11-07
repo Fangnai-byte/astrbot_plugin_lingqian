@@ -84,16 +84,19 @@ SYSTEM_PROMPT = (
 def build_prompt(item: dict, question: str) -> str:
     poem = "，".join(item.get("poem") or [])
     items = "，".join(f"{k}{v}" for k, v in (item.get("items") or {}).items())
+    vague = "" if question_kind(question) else (
+        "他问得笼统，就往这几天该留意什么上说，别讲放之四海皆准的空话\n"
+    )
     return (
         f"签号：第 {item['num']} 签 · {item.get('title', '')}（{grade_of(item)}）\n"
         f"签诗：{poem}\n"
         f"白话：{item.get('jie', '')}\n"
         f"分项：{items}\n"
-        f"卦头故事：{item.get('story', '')}\n\n"
+        f"卦头故事：{item.get('story', '')}\n"
         f"用户问：{question}\n"
-        "先说他问的这件事该怎么看，再用签里的东西作依据，两三句"
+        + vague
+        + "先说他问的这件事该怎么看，再用签里的东西作依据，两三句"
     )
-
 
 TIME_WORDS = ("凌晨", "清早", "早上", "上午", "中午", "晌午", "下午", "傍晚", "晚上", "夜里", "半夜")
 
