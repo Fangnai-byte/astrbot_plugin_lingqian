@@ -50,15 +50,17 @@
 
 ## 每日一签
 
-配好时间与会话，每天定时往群里推同一支（按日期取，六十天一轮）：
+在群里发一句就订上：
 
 ```
-daily_push_enabled   true
-daily_push_times     ["08:00"]
-daily_push_targets   ["aiocqhttp:GroupMessage:123456"]
+/灵签 订阅     这个群每天收一支
+/灵签 退订     不再收
 ```
 
-时间到了才发，没配就不发。要拿会话 id，先在群里发一句 `/灵签 统计`，日志里能看到。
+默认早上八点推，改时间用配置里的 `daily_push_times`（24 小时制，可填多个）。
+按日期取签，同一天推到各处都是同一支，六十天一轮。
+
+订阅表存在 `daily_subs.json`，也可以直接在 `daily_push_targets` 里写死会话。
 
 ## 配置
 
