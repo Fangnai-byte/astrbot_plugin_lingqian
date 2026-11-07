@@ -7,7 +7,12 @@ import random
 import time
 from datetime import datetime
 
-from astrbot.api.event import AstrMessageEvent, filter
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from astrbot.api.event import AstrMessageEvent, MessageChain, filter
+from astrbot.api.message_components import Plain
+from astrbot.core.message.components import Image
 from astrbot.api.star import Context, Star, register
 
 from .hou import current_hou
@@ -194,6 +199,15 @@ class LingQianPlugin(Star):
         self.data = _load()
         self.store = Store(os.path.join(PLUGIN_DIR, "history.json"))
         self._last_draw: dict = {}
+        self.scheduler: AsyncIOScheduler | None = None
+        self._setup_daily()
+
+    async def terminate(self) -> None:
+        if self.scheduler is not None:
+            try:
+                self.scheduler.shutdown(wait=False)
+            except Exception:
+                pass
 
     # ---------- 配置 ----------
     def _cfg(self, key: str, default):
@@ -298,6 +312,58 @@ class LingQianPlugin(Star):
         if not text:
             return ""
         return trim_text(drop_invented_time(text, item), limit)
+
+    # ---------- 每日一签 ----------
+    def daily_item(self, when=None) -> dict:
+        """同一天推同一支：按日期取签，不看是谁。"""
+        when = when or datetime.now()
+        seed = int(when.strftime("%Y%m%d"))
+        idx = seed % len(self.data)
+        return self.data[idx]
+
+    def _setup_daily(self) -> None:
+        if not self._cfg("daily_push_enabled", False):
+            return
+        targets = [str(t).strip() for t in (self._cfg("daily_push_targets") or []) if str(t).strip()]
+        times = [str(t).strip() for t in (self._cfg("daily_push_times") or []) if str(t).strip()]
+        if not targets or not times:
+            return
+        sched = AsyncIOScheduler(timezone="Asia/Shanghai")
+        for slot in times:
+            parts = slot.split(":")
+            if len(parts) != 2 or not all(p.isdigit() for p in parts):
+                continue
+            cron = f"{int(parts[1])} {int(parts[0])} * * *"
+            sched.add_job(self._push_daily, CronTrigger.from_crontab(cron, timezone="Asia/Shanghai"),
+                          args=[targets], id="lingqian_daily_" + slot, replace_existing=True,
+                          max_instances=1, coalesce=True, misfire_grace_time=600)
+        try:
+            sched.start()
+        except Exception:
+            return
+        self.scheduler = sched
+
+    async def _push_daily(self, targets: list) -> None:
+        item = self.daily_item()
+        head = f"今日一签 · 第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
+        poem_text = chr(10).join(item.get("poem") or [])
+        text = chr(10).join([head, poem_text, "", no_period(item.get("jie", "")), "", items_line(item)])
+        img = None
+        if self._cfg("image_enabled", True):
+            path = os.path.join(self._temp_dir(), f"lingqian_daily_{datetime.now():%Y%m%d}.jpg")
+            try:
+                await asyncio.to_thread(render_stick, item, path,
+                                        self._as_int("image_width", 760), "", f"今日一签 {datetime.now():%m-%d}")
+                img = path
+            except Exception:
+                img = None
+        for umo in targets:
+            try:
+                parts = [Image.fromFileSystem(img)] if img else []
+                parts.append(Plain(text))
+                await self.context.send_message(umo, MessageChain(parts))
+            except Exception:
+                continue
 
     @staticmethod
     def hou_text() -> str:
