@@ -71,10 +71,13 @@ def render_stick(item: dict, out_path: str, width: int = 760, question: str = ""
     story_lines = []
     story = item.get("story") or ""
     per = 17
+    max_lines = 5
     while story:
         story_lines.append(story[:per])
         story = story[per:]
-    story_lines = story_lines[:3]
+    if len(story_lines) > max_lines:
+        story_lines = story_lines[:max_lines]
+        story_lines[-1] = story_lines[-1][: per - 1] + "…"
 
     h = top + strip_h + int(w * 0.10) + len(story_lines) * int(w * 0.035) + int(w * 0.16)
     img = _paper(w, h).convert("RGBA")
