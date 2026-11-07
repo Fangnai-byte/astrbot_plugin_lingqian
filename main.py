@@ -204,13 +204,15 @@ class LingQianPlugin(Star):
     def reading(item: dict) -> str:
         poem = "，".join(item["poem"][:2]) + "。"
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
-        return head + "\n" + poem + "\n" + item.get("jie", "")
+        tail = items_line(item)
+        return head + "\n" + poem + "\n" + item.get("jie", "") + (("\n\n" + tail) if tail else "")
 
     def plain(self, item: dict) -> str:
         """配置关掉图片时的纯文字版。"""
         poem = "\n".join(item["poem"])
         head = f"第 {item['num']} 签 · {item['title']}（{grade_of(item)}）"
-        return head + "\n" + poem + "\n\n" + item.get("jie", "")
+        tail = items_line(item)
+        return head + "\n" + poem + "\n\n" + item.get("jie", "") + (("\n\n" + tail) if tail else "")
 
     # ---------- 命令 ----------
     @filter.command("灵签", alias={"抽签", "求签"})
