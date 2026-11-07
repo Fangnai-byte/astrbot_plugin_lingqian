@@ -46,11 +46,11 @@ def no_period(text: str) -> str:
 
 
 def items_line(item: dict) -> str:
-    """分项一行：功名 · 财禄 · 婚姻 · 疾病 · 出行。"""
+    """分项一行：功名…，财禄…，婚姻…，疾病…，出行…。"""
     items = item.get("items") or {}
     if not items:
         return ""
-    return "　".join(f"{k} {v}" for k, v in items.items())
+    return "，".join(f"{k}{v}" for k, v in items.items())
 
 
 def grade_of(item: dict) -> str:
