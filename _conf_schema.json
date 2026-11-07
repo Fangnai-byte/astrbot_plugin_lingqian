@@ -1,0 +1,20 @@
+{
+  "image_enabled": {
+    "type": "bool",
+    "description": "发签条图",
+    "default": true,
+    "hint": "关掉只回文字：签号、签诗、一句白话。出图失败也会自动退回文字。"
+  },
+  "image_width": {
+    "type": "int",
+    "description": "签条图宽度（像素）",
+    "default": 760,
+    "hint": "560~1200。窄一点在手机上看着舒服，宽一点签诗更清楚。"
+  },
+  "cooldown_seconds": {
+    "type": "int",
+    "description": "两次抽签之间的冷却（秒）",
+    "default": 60,
+    "hint": "0 表示不限。抽太快签就不灵了，默认一分钟一次。"
+  }
+}
