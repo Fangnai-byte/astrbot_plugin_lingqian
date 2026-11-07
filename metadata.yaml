@@ -1,0 +1,44 @@
+# 插件的唯一标识名 (不要改)
+name: astrbot_plugin_lingqian
+
+# 插件展示名
+display_name: 灵签（六十甲子）
+
+# 插件的一句话简介
+desc: 六十甲子灵签：抽一支，出签条图（竖排签诗、签号、朱印），附签诗、卦头故事和一句白话
+
+# 插件的详细帮助信息
+help: |
+  /灵签 [问的事]      抽一支签，出签条图
+  /灵签 统计          抽过几次、碰到几支不同的签、等级分布
+  /灵签 群统计        本群一共抽了几次、几个人抽过、谁抽得最多
+  /抽签 [问的事]      同上
+  /求签 [问的事]      同上
+
+  签条竖排四句签诗，从右往左读；上面是签号和干支，右下角盖朱印，
+  下面是卦头故事。签诗取 60 支公版原文，白话是另写的。
+
+  同一个人最近抽过的 12 支不会再出现；抽满 12 次后会开始碰上重复的签。
+
+# 插件 Logo 文件名（对应插件目录下的 logo.png）
+logo: "https://raw.githubusercontent.com/Fangnai-byte/astrbot_plugin_lingqian/main/logo.png"
+
+# 你的 GitHub 仓库地址
+repo: "https://github.com/Fangnai-byte/astrbot_plugin_lingqian"
+
+# 插件版本号
+version: 0.1.0
+
+# 作者名
+author: Fangnai-byte
+
+# 声明支持的平台
+support_platforms:
+  - aiocqhttp
+  - telegram
+  - discord
+  - lark
+  - wecom
+
+# 声明支持的 AstrBot 版本范围
+astrbot_version: ">=v4.12.0"
