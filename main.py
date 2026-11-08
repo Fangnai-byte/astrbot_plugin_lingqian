@@ -5,6 +5,7 @@ import json
 import os
 import random
 import re
+import tempfile
 import time
 from datetime import datetime
 
@@ -162,6 +163,37 @@ def no_period(text: str) -> str:
     return t.rstrip("，；")
 
 
+PLUGIN_NAME = "astrbot_plugin_lingqian"
+
+
+def plugin_data_dir() -> str:
+    """持久化目录：data/plugin_data/astrbot_plugin_lingqian/。
+
+    以前 history.json 和 daily_subs.json 直接写在插件目录里，
+    升级插件会把用户数据一起覆盖掉，插件市场也判为违规。
+    """
+    try:
+        from astrbot.core.star.star_tools import StarTools
+
+        base = str(StarTools.get_data_dir(PLUGIN_NAME))
+    except Exception:
+        here = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.join(os.path.dirname(os.path.dirname(here)), "plugin_data", PLUGIN_NAME)
+    os.makedirs(base, exist_ok=True)
+    return base
+
+
+def _migrate(old: str, new: str) -> None:
+    """老位置有文件、新位置没有，就搬一次。"""
+    try:
+        if os.path.exists(old) and not os.path.exists(new):
+            import shutil
+
+            shutil.move(old, new)
+    except Exception:
+        pass
+
+
 def items_line(item: dict) -> str:
     """分项一行：功名…，财禄…，婚姻…，疾病…，出行…。"""
     items = item.get("items") or {}
@@ -204,7 +236,9 @@ class LingQianPlugin(Star):
         super().__init__(context)
         self.config = config or {}
         self.data = _load()
-        self.store = Store(os.path.join(PLUGIN_DIR, "history.json"))
+        hist_path = os.path.join(plugin_data_dir(), "history.json")
+        _migrate(os.path.join(PLUGIN_DIR, "history.json"), hist_path)
+        self.store = Store(hist_path)
         self._last_draw: dict = {}
         self.scheduler: AsyncIOScheduler | None = None
         self._setup_daily()
@@ -231,7 +265,7 @@ class LingQianPlugin(Star):
             from astrbot.core.utils.astrbot_path import get_astrbot_data_path
             base = os.path.join(get_astrbot_data_path(), "temp")
         except Exception:
-            base = os.path.join(PLUGIN_DIR, ".tmp")
+            base = os.path.join(tempfile.gettempdir(), PLUGIN_NAME)
         os.makedirs(base, exist_ok=True)
         return base
 
@@ -323,7 +357,9 @@ class LingQianPlugin(Star):
     # ---------- 每日一签 ----------
     @property
     def _subs_path(self) -> str:
-        return os.path.join(PLUGIN_DIR, "daily_subs.json")
+        path = os.path.join(plugin_data_dir(), "daily_subs.json")
+        _migrate(os.path.join(PLUGIN_DIR, "daily_subs.json"), path)
+        return path
 
     def load_subs(self) -> list:
         try:
