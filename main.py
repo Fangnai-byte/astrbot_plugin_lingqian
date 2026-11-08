@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import random
+import re
 import time
 from datetime import datetime
 
@@ -584,3 +585,23 @@ class LingQianPlugin(Star):
         finally:
             pass
         yield event.plain_result(self.reading(item, question, answer))
+
+    @filter.regex(r"(抽|求|摇|掷|看|来|给|帮|整)[^，。！？]{0,4}(签)")
+    async def cmd_lingqian_loose(self, event: AstrMessageEvent):
+        """没写命令词也能抽：「抽个签」「帮我求支签」。
+
+        只认 At 或唤醒之后的话，普通闲聊不接。消息本来就以命令词开头的让路，
+        免得同一条走两遍。
+        """
+        if not getattr(event, "is_at_or_wake_command", False):
+            return
+        raw = str(getattr(event, "message_str", "") or "").strip().lstrip("/").strip()
+        if raw.startswith(("灵签", "抽签", "求签")):
+            return
+        # 把触发词从问句里剥掉，剩下的当问题
+        question = re.sub(r"^(帮我|给我|麻烦)?\s*(抽|求|摇|掷|看|来|给|帮|整)[^，。！？]{0,4}签[，。！？\s]*", "", raw)
+        if not question or len(question) > 24:
+            question = ""
+        async for item in self.cmd_lingqian(event, question):
+            yield item
+
