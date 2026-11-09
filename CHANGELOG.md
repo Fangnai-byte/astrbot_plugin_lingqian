@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.5.4
+
+- 旧位置的数据搬迁收拢到 `_migrate_legacy` 一处，插件目录只在启动时被扫一次；
+  数据读写全部在 `data/plugin_data/astrbot_plugin_lingqian/`，便于自动审核看清
+
 ## 0.5.3
 
 - 持久化数据挪到 `data/plugin_data/astrbot_plugin_lingqian/`：抽签记录和订阅表
