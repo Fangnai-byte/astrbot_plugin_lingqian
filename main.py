@@ -183,15 +183,26 @@ def plugin_data_dir() -> str:
     return base
 
 
-def _migrate(old: str, new: str) -> None:
-    """老位置有文件、新位置没有，就搬一次。"""
-    try:
-        if os.path.exists(old) and not os.path.exists(new):
-            import shutil
+#: 早期版本把数据写在插件目录里。这里**只读一次、搬走**，之后不再碰插件目录。
+#: 新代码一律用 plugin_data_dir() 写入，插件目录本身只放代码和静态数据。
+_LEGACY_FILES = ("history.json", "daily_subs.json")
 
-            shutil.move(old, new)
-    except Exception:
-        pass
+
+def _migrate_legacy(dest_dir: str) -> None:
+    """把老位置残留的数据文件搬到 plugin_data_dir，搬完插件目录里就不再有数据。
+
+    只做一次：目标已存在就跳过；插件目录里没有老文件就什么都不做。
+    """
+    import shutil
+
+    for name in _LEGACY_FILES:
+        old = os.path.join(PLUGIN_DIR, name)
+        new = os.path.join(dest_dir, name)
+        try:
+            if os.path.exists(old) and not os.path.exists(new):
+                shutil.move(old, new)
+        except Exception:
+            continue
 
 
 def items_line(item: dict) -> str:
@@ -236,9 +247,9 @@ class LingQianPlugin(Star):
         super().__init__(context)
         self.config = config or {}
         self.data = _load()
-        hist_path = os.path.join(plugin_data_dir(), "history.json")
-        _migrate(os.path.join(PLUGIN_DIR, "history.json"), hist_path)
-        self.store = Store(hist_path)
+        data_dir = plugin_data_dir()
+        _migrate_legacy(data_dir)
+        self.store = Store(os.path.join(data_dir, "history.json"))
         self._last_draw: dict = {}
         self.scheduler: AsyncIOScheduler | None = None
         self._setup_daily()
@@ -357,9 +368,8 @@ class LingQianPlugin(Star):
     # ---------- 每日一签 ----------
     @property
     def _subs_path(self) -> str:
-        path = os.path.join(plugin_data_dir(), "daily_subs.json")
-        _migrate(os.path.join(PLUGIN_DIR, "daily_subs.json"), path)
-        return path
+        # 订阅读写都在 plugin_data_dir，插件目录只在启动时被扫一次（_migrate_legacy）
+        return os.path.join(plugin_data_dir(), "daily_subs.json")
 
     def load_subs(self) -> list:
         try:
